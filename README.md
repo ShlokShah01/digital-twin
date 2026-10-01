@@ -61,7 +61,7 @@ git clone https://github.com/ShlokShah01/digital-twin.git
 cd digital-twin
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,tts]"
 Copy-Item .env.example .env
 npm --prefix web ci
 npm --prefix web run build
@@ -139,6 +139,20 @@ flowchart LR
 
 Laya is a cross-check, not a guarantee of a person's future decisions. The checkpoint can emit a temperature-calibration warning; affected confidence values should be treated as uncalibrated. Chat displays the answer while technical metadata remains available through the API.
 
+## Natural read-aloud audio
+
+Click **Read aloud** beneath a reply; click again to stop. In **Settings → Read-aloud voice**, choose Alba (conversational), Marius, or Anna. Playback stays off until requested and uses 70% volume without artificial pitch or speed changes.
+
+[Pocket TTS 3.3.0](https://github.com/kyutai-labs/pocket-tts) generates audio locally on **CPU**; Laya can continue using CUDA. Install the `tts` extra above. The first startup downloads public model weights and voice conditioning; later starts reuse the Hugging Face cache. Chat remains available if speech cannot load.
+
+Calibration follows the [official English model configuration](https://github.com/kyutai-labs/pocket-tts/blob/main/pocket_tts/config/english_2026-09.yaml): **temperature 0.3**, **one decoding step**, no noise clamp, EOS threshold −4. Kyutai reports that human evaluation preferred temperature 0.3. This app uses CPU INT8 quantization and four PyTorch threads after local speed checks. Alba uses a voice-acted casual reference; naturalness and accent are subjective, so compare the three voices in Settings.
+
+A fictional short local sample generated about **3.92 seconds of speech in 1.90 seconds** with INT8/four threads. The app buffers the WAV before playback to avoid gaps; this is not a first-audio latency guarantee. Longer replies take longer. Repeated identical replies use a bounded eight-entry RAM cache. One generation runs at a time; stopping cancels playback/download, but an in-progress CPU generation finishes before another can start.
+
+The selected model supports **English speech**. Hindi dictation still works, but Hindi read-aloud needs a separate language model and returns a clear message here. Browser voice synthesis is no longer used. Audio is mono 24 kHz PCM WAV and is not saved to project storage.
+
+Voice reference credits: [Kyutai voice catalog](https://huggingface.co/kyutai/tts-voices). Alba: Alba MacKenna, CC BY 4.0. Marius: donated reference, CC0. Anna: VCTK p228 reference, CC BY 4.0; see the catalog's VCTK attribution and licenses. These references are shipped as cached model conditioning, not committed into this repository.
+
 ## Development and testing
 
 ```powershell
@@ -174,6 +188,7 @@ Interactive API documentation is available at **http://127.0.0.1:8000/docs** whi
 | GET | `/api/graph` | Knowledge graph and communities |
 | POST | `/api/ask` | Complete answer for a question and optional choices |
 | POST | `/api/ask/stream` | NDJSON answer stream |
+| POST | `/api/speech` | Local Pocket TTS WAV; text up to 4000 characters, voice alba/marius/anna |
 | POST | `/api/build` | Rebuild the twin from source files |
 | POST | `/api/ingest` | Add a source file incrementally |
 

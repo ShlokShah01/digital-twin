@@ -20,9 +20,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from typing import Literal
+from .speech import speech, SpeechBusy
 from starlette.concurrency import run_in_threadpool
 
 from .config import ROOT, load_config
@@ -44,6 +46,10 @@ async def lifespan(app):
     # Warm embeddings before accepting chats, just as we warm the CUDA model.
     from .embedder import Embedder
     await run_in_threadpool(Embedder(_cfg.embed_model).dim)
+    try:
+        await run_in_threadpool(speech.warmup)
+    except Exception:
+        log.exception("Pocket TTS could not warm up; chat remains available")
     yield
 
 
@@ -119,6 +125,7 @@ def health():
     prof = load_profile(_cfg.profile_path)
     return {
         "ok": True,
+        "speech": {"model": "pocket-tts", "device": "cpu", "loaded": speech.model is not None},
         "llm": bool(_cfg.llm_api_key) and _cfg.llm_enabled,
         "chunks": store.count(),
         "laya_enabled": _cfg.laya_enabled,
@@ -280,3 +287,22 @@ async def ask_stream_endpoint(req: AskRequest):
 
     return StreamingResponse(stream(), media_type="application/x-ndjson",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+    voice: Literal["alba", "marius", "anna"] = "alba"
+
+
+@app.post("/api/speech")
+def speech_endpoint(req: SpeechRequest):
+    try:
+        audio = speech.synthesize(req.text, req.voice)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except SpeechBusy as exc:
+        raise HTTPException(429, str(exc), headers={"Retry-After": "3"}) from exc
+    except Exception as exc:
+        log.exception("Pocket TTS synthesis failed")
+        raise HTTPException(503, "Speech is unavailable. Please try again shortly.") from exc
+    return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})
