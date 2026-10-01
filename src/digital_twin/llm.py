@@ -160,10 +160,15 @@ class ChatClient:
         deadline = time.monotonic() + max(self.cfg.llm_timeout, 0.01)
         last_err: Exception | None = None
         primary_slots = self._ordered_slots()
-        attempts = [(self.cfg.llm_model, primary_slots[i % len(primary_slots)])
-                    for i in range(len(primary_slots) if self.on_text is not None else _MAX_ATTEMPTS)]
-        if self.cfg.llm_fallback_model:
-            attempts += [(self.cfg.llm_fallback_model, i) for i in (primary_slots[-1:] if self.on_text is not None else primary_slots)]
+        if self.on_text is not None and self.cfg.llm_fallback_model:
+            # Switch model and key together rather than queue on the same model twice.
+            attempts = [(self.cfg.llm_model, primary_slots[0]),
+                        (self.cfg.llm_fallback_model, primary_slots[-1])]
+        else:
+            attempts = [(self.cfg.llm_model, primary_slots[i % len(primary_slots)])
+                        for i in range(len(primary_slots) if self.on_text is not None else _MAX_ATTEMPTS)]
+            if self.cfg.llm_fallback_model:
+                attempts += [(self.cfg.llm_fallback_model, i) for i in primary_slots]
         retired_models: set[str] = set()
         for attempt, (model, idx) in enumerate(attempts):
             if model in retired_models:
@@ -207,12 +212,14 @@ class ChatClient:
         def request():
             # Every HTTP attempt, including JSON-format retries, uses quota.
             while True:
-                remaining = deadline - time.monotonic() if deadline is not None else self.cfg.llm_timeout
+                remaining = attempt_deadline - time.monotonic()
                 if remaining <= 0:
                     raise LLMUnavailable("LLM response deadline exceeded")
                 wait = slot.bucket.take()
                 if not wait:
                     break
+                if self.on_text is not None:
+                    raise LLMUnavailable("This API key is at its request limit; trying the alternate slot")
                 time.sleep(min(wait + 0.01, remaining))
             resp = slot.client.chat.completions.create(
                 **kwargs, timeout=min(self.cfg.llm_attempt_timeout, remaining)

@@ -197,3 +197,35 @@ def test_stream_attempt_deadline_includes_reasoning_chunks(monkeypatch):
     with pytest.raises(llm.LLMUnavailable, match="deadline"):
         c.complete_text("fictional question")
     assert closed == [True]
+
+
+def test_stream_switches_model_and_key_after_failure(monkeypatch):
+    calls=[]
+    cfg=Config(llm_api_key="one",llm_api_key_2="two",llm_model="primary",llm_fallback_model="fallback",llm_timeout=4,llm_attempt_timeout=2)
+    class Stream:
+        def __iter__(self):
+            yield SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content="ok"))])
+        def close(self): pass
+    def slot_for(cfg,key):
+        slot=llm._Slot(key,"http://test",4,40)
+        def create(**kwargs):
+            calls.append((key,kwargs["model"]))
+            if kwargs["model"]=="primary": raise openai.APITimeoutError(request=httpx.Request("POST","http://test"))
+            return Stream()
+        slot._client=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+        return slot
+    monkeypatch.setattr(llm,"_slot_for",slot_for)
+    monkeypatch.setattr(llm,"_IRR",0)
+    c=llm.ChatClient(cfg); c.on_text=lambda text:None
+    assert c.complete_text("fictional question")=="ok"
+    assert calls==[("one","primary"),("two","fallback")]
+
+
+def test_stream_skips_full_key_without_waiting(monkeypatch):
+    c=client(monkeypatch,lambda **kwargs: pytest.fail("full key must not call provider"))
+    c.on_text=lambda text:None
+    c.cfg.llm_fallback_model=""
+    monkeypatch.setattr(c._slots[0].bucket,"take",lambda:60)
+    monkeypatch.setattr(llm.time,"sleep",lambda seconds:pytest.fail("stream must not wait for quota"))
+    with pytest.raises(llm.LLMUnavailable,match="request limit"):
+        c.complete_text("fictional question")

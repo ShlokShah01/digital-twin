@@ -41,6 +41,9 @@ async def lifespan(app):
         from .laya_agent import LayaEngine
         _runtime_laya = LayaEngine(checkpoint=_cfg.laya_checkpoint, device=_cfg.laya_device)
         await run_in_threadpool(_runtime_laya._load)
+    # Warm embeddings before accepting chats, just as we warm the CUDA model.
+    from .embedder import Embedder
+    await run_in_threadpool(Embedder(_cfg.embed_model).dim)
     yield
 
 

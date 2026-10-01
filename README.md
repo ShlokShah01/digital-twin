@@ -68,10 +68,11 @@ a hosted model:
 OPENAI_API_KEY=nvapi-xxxx                 # key 1 (required for LLM mode)
 OPENAI_API_KEY_2=nvapi-yyyy               # key 2 (optional, second rate slot)
 OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1
-DIGITAL_TWIN_LLM_MODEL=openai/gpt-oss-20b   # primary narrator/decider model
+DIGITAL_TWIN_LLM_MODEL=nvidia/nemotron-3-super-120b-a12b
+DIGITAL_TWIN_LLM_FALLBACK_MODEL=openai/gpt-oss-20b
 DIGITAL_TWIN_LLM_FALLBACK_MODEL=                        # optional; alternate-key retry is enabled
 DIGITAL_TWIN_LLM_CONTEXT=131072   # input token budget (long docs/briefs are front-loaded to fit)
-DIGITAL_TWIN_LLM_TIMEOUT=45    # total retry deadline
+DIGITAL_TWIN_LLM_TIMEOUT=20    # total retry deadline
 DIGITAL_TWIN_LLM_RPM=40        # strict rolling-minute cap per key
 ```
 
@@ -186,9 +187,9 @@ the caution is surfaced in the UI.
 
 Laya weights are shared across requests and warmed when the server starts, so each chat avoids downloading/checking and loading a fresh checkpoint. On this Windows machine the project `.env` selects `DIGITAL_TWIN_LAYA_DEVICE=cuda`; `GET /api/health` reports the actual warmed device and `laya_loaded`.
 
-The narrator is NVIDIA-hosted `openai/gpt-oss-20b` with low reasoning effort. It passed both fictional English/Hindi checks in 3.2–5.2 seconds; Lightning timed out in the same comparison. After removing the JSON decision report from ordinary chat, the exact chat-generation path returned valid answers in 1.89 and 1.77 seconds through the two keys with a longer fictional brief. These are synthetic hosted-API measurements, not a guaranteed end-to-end response time. Sanitized results are in `data/twin/model_benchmark.json`. Streaming requests retry the other key without backoff; every HTTP call, including failed and format-retry calls, counts toward that key’s strict rolling-minute limit.
+The narrator is NVIDIA `nvidia/nemotron-3-super-120b-a12b` with thinking disabled. GPT-OSS 20B is the independent fallback. A 2026-10-01 synthetic 4.6k-character context test produced first answer text in 0.87 seconds and completed in 6.68 seconds on Super. Two shorter fictional checks through the actual client completed in 4.08 and 1.07 seconds. Hosted timings vary; these are not guaranteed end-to-end response times. Streaming failures switch model and key together rather than retrying the same model twice. Every HTTP request counts toward the configured per-key 40 RPM quota; saturated keys fail over without a minute-long wait.
 
-`DIGITAL_TWIN_LLM_TIMEOUT=20` bounds the retry budget and `DIGITAL_TWIN_LLM_ATTEMPT_TIMEOUT=8` limits provider requests. Ordinary chat streams plain answer text, without generating a JSON decision report; structured choice questions keep their existing report. Greetings and identity questions answer locally. Provider failures produce a retryable error rather than a false missing-key answer. Retired models go directly to failover; authentication failures fail immediately; empty answers are never treated as successful. Provider response times still vary.
+`DIGITAL_TWIN_LLM_TIMEOUT=20` bounds the retry budget and `DIGITAL_TWIN_LLM_ATTEMPT_TIMEOUT=10` limits provider requests. Ordinary chat streams plain answer text, without generating a JSON decision report; structured choice questions keep their existing report. Greetings and identity questions answer locally. Provider failures produce a retryable error rather than a false missing-key answer. Retired models go directly to failover; authentication failures fail immediately; empty answers are never treated as successful. Provider response times still vary.
 
 Check GPU scoring/reranking with `.venv\Scripts\python.exe -B tests\check_laya_gpu.py`. Latency regressions are in `tests/test_latency.py`; the full API/engine tests continue to cover bot behavior. Chat displays only the answer; timing remains available in API metadata. The UI uses the same hash routes and existing localStorage chat history.
 
