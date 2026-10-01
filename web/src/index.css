@@ -470,3 +470,8 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 .resource-links strong { font-size:14px; font-weight:500; }
 .resource-links small { display:block; margin-top:6px; color:var(--muted); font-size:12px; line-height:1.7; }
 .resource-links svg { flex-shrink:0; color:var(--accent); }
+
+.reply-audio { margin-top:10px; display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.reply-audio button { color:var(--muted); font-size:12px; min-height:34px; }
+.reply-audio button[aria-pressed=true] { color:var(--accent); background:var(--accent-soft); }
+.reply-audio small { color:var(--muted); line-height:1.7; font-size:12px; max-width:55ch; }

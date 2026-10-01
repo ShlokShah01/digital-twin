@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  SpeakerHigh,
   DownloadSimple,
   PenNib,
   CircleNotch,
@@ -11,11 +12,11 @@ import {
 import { askStream, splitOptions } from "../api.js";
 import { downloadConversation } from "../lib/history.js";
 import { uid } from "../lib/chat.js";
-import { voiceDraft } from "../lib/voice.js";
+import { voiceDraft, replyUtterance } from "../lib/voice.js";
 import { Button } from "../components/ui/button.jsx";
 import { Textarea } from "../components/ui/textarea.jsx";
 
-function AnswerCard({ msg, onRetry, retrying, timings }) {
+function AnswerCard({ msg, onRetry, retrying, timings, speechSupported, reading, onRead, speechNotice }) {
   return (
     <div className="plain-answer">
       {msg.error ? (
@@ -26,6 +27,9 @@ function AnswerCard({ msg, onRetry, retrying, timings }) {
           </Button>
         </div>
       ) : <p className="answer-prose">{msg.answer?.answer || "No answer was returned. Please try again."}</p>}
+      {!msg.error && msg.answer?.answer && <div className="reply-audio"><Button variant="ghost" size="sm" disabled={!speechSupported} aria-pressed={reading} onClick={onRead} title={speechSupported ? "Listen to this answer" : "Read aloud is unavailable in this browser"}>
+        {reading ? <Stop size={15} /> : <SpeakerHigh size={16} />}<span>{reading ? "Stop reading" : "Read aloud"}</span>
+      </Button>{speechNotice && <small role="status">{speechNotice}</small>}</div>}
       {timings && !msg.error && Number.isFinite(msg.duration) && <small className="reply-timing">Answered in {(msg.duration / 1000).toFixed(1)} seconds</small>}
     </div>
   );
@@ -55,6 +59,50 @@ const STARTERS = [
 ];
 
 export default function Chat({ store, activeId, setActiveId, preferences }) {
+  const [readingId, setReadingId] = useState(null);
+  const [speechNotice, setSpeechNotice] = useState(null);
+  const utteranceRef = useRef(null);
+  const canRead = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+  const stopReading = () => {
+    if (utteranceRef.current) {
+      utteranceRef.current = null;
+      window.speechSynthesis?.cancel();
+    }
+    setReadingId(null);
+  };
+  useEffect(() => {
+    stopReading();
+    setSpeechNotice(null);
+    return () => {
+      if (utteranceRef.current) {
+        utteranceRef.current = null;
+        window.speechSynthesis?.cancel();
+      }
+    };
+  }, [activeId]);
+  const readReply = msg => {
+    const wasReading = readingId === msg.id;
+    stopReading();
+    setSpeechNotice(null);
+    if (wasReading || !canRead) return;
+    recognitionRef.current?.abort();
+    const utterance = replyUtterance(msg.answer.answer, window.SpeechSynthesisUtterance, window.speechSynthesis.getVoices());
+    utteranceRef.current = utterance;
+    const finish = () => {
+      if (utteranceRef.current !== utterance) return;
+      utteranceRef.current = null;
+      setReadingId(null);
+    };
+    utterance.onend = finish;
+    utterance.onerror = event => {
+      if (utteranceRef.current !== utterance) return;
+      finish();
+      if (!["canceled", "interrupted"].includes(event.error)) setSpeechNotice({ id: msg.id, text: "Audio could not play. Check your device's voices and sound settings, then try again." });
+    };
+    setReadingId(msg.id);
+    try { window.speechSynthesis.speak(utterance); }
+    catch { finish(); setSpeechNotice({ id: msg.id, text: "Read aloud is unavailable. Try Chrome or Edge." }); }
+  };
   const [text, setText] = useState("");
   const [opts, setOpts] = useState("");
   const [showOpts, setShowOpts] = useState(false);
@@ -81,6 +129,7 @@ export default function Chat({ store, activeId, setActiveId, preferences }) {
   useEffect(() => { recognitionRef.current?.abort(); }, [activeId]);
   const toggleVoice = () => {
     if (listening) { recognitionRef.current?.stop(); return; }
+    stopReading();
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { setVoiceError("Voice typing isn't supported here. Open this chat in Chrome or Edge."); return; }
     const recognition = new SpeechRecognition();
@@ -211,7 +260,7 @@ export default function Chat({ store, activeId, setActiveId, preferences }) {
         ) : msg.thinking ? (
           <div key={msg.id} className="assistant-turn thinking-turn"><span className="twin-avatar" aria-hidden="true"><PenNib size={17}/></span><div className="thinking-content" role="status">{msg.preview && <p className="answer-prose streaming-preview">{msg.preview}</p>}<div><CircleNotch size={16} className="animate-spin"/><span>{msg.preview ? "Writing your answer" : "Thinking through your question"}</span><time>{elapsed}s</time></div><p>{elapsed < 10 ? "Preparing your answer." : "Still waiting for the model response. You can keep drafting below."}</p><span className="thinking-track" aria-hidden="true" /></div></div>
         ) : (
-          <div key={msg.id} className="assistant-turn"><span className="twin-avatar" aria-hidden="true"><PenNib size={17}/></span><div className="assistant-content"><AnswerCard msg={msg} onRetry={() => retry(msg)} retrying={retrying || pending} timings={preferences?.timings}/></div></div>
+          <div key={msg.id} className="assistant-turn"><span className="twin-avatar" aria-hidden="true"><PenNib size={17}/></span><div className="assistant-content"><AnswerCard msg={msg} onRetry={() => retry(msg)} retrying={retrying || pending} timings={preferences?.timings} speechSupported={canRead} reading={readingId === msg.id} onRead={() => readReply(msg)} speechNotice={speechNotice?.id === msg.id ? speechNotice.text : ""}/></div></div>
         ))}
         <div ref={endRef} />
       </div>

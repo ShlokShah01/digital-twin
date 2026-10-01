@@ -23,7 +23,7 @@
 <tr>
 <td width="50%" valign="top">
 <h3>Clear conversations</h3>
-<p>Streamed replies, compact message entry, Hindi and English voice dictation, and optional choices for comparing decisions. Personal reports stay outside the chat view.</p>
+<p>Streamed replies, compact message entry, Hindi and English voice dictation, click-to-play answer readout, and optional choices for comparing decisions. Personal reports stay outside the chat view.</p>
 </td>
 <td width="50%" valign="top">
 <h3>Connected knowledge</h3>
@@ -146,7 +146,7 @@ Laya is a cross-check, not a guarantee of a person's future decisions. The check
 python -m pytest
 
 # Frontend regression checks.
-node --test web/src/api.test.js web/src/lib/preferences.test.js web/src/lib/history.test.js
+node --test web/src/api.test.js web/src/lib/preferences.test.js web/src/lib/history.test.js web/src/lib/voice.test.js
 
 # Frontend development server; run the backend separately on port 8000.
 npm --prefix web run dev

@@ -29,3 +29,7 @@ Use the existing Phosphor PenNib icon as a compact digital pen mark in the brand
 ## Conversation tools and resources
 
 The rail has compact title/question/answer search. A small Export chat control saves visible turns and choices as Markdown, without internal evidence or metadata. Resources is a profile-menu destination with editorial sections, native troubleshooting disclosures, and official documentation links. It inherits workspace colors and responsive settings-page spacing.
+
+## Spoken replies
+
+Each successful final answer has a compact Read aloud toggle below the text. Playback is opt-in and uses browser speech synthesis with a matching English/Hindi voice when available. Only one reply plays at a time; Stop reading, starting dictation, changing sessions, and leaving chat cancel playback. Errors display a recovery message beside the control. Unsupported browsers disable the control.
