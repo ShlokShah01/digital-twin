@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Environment / secrets
+.env
+
+# Build outputs
+data/twin/
+data/raw/demo/
+
+# Tooling
+.idea/
+.vscode/
+.DS_Store
+# Local data, credentials, dependencies, and generated artifacts
+.env.*
+!.env.example
+data/
+node_modules/
+web/dist/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.opencode/
+.impeccable/
