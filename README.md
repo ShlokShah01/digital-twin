@@ -1,198 +1,199 @@
-# Digital Twin
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="Digital Twin — Personal knowledge. Clear conversations." width="100%" />
+</p>
 
-An AI "digital twin" of a person: it learns your writing style, speaking
-patterns, frequently used words, preferences and decision rules from your
-journals, notes, chats, emails and CSV data, stores them in a hybrid
-vector + knowledge-graph index, and answers "What would I probably choose?"
+<p align="center">
+  <strong>A personal AI workspace built around your knowledge.</strong><br />
+  Turn notes, journals, and conversations into a searchable profile, a knowledge graph, and grounded answers.
+</p>
 
-```
-digital-twin demo                                   generate demo data (Alex Carter)
-digital-twin build --data data/raw/demo            ingest + graph + profile
-digital-twin ask "Should I buy a flagship?" \
-    --options "Buy new;Buy refurbished;Wait"        decision question
-digital-twin profile                                print the learned profile
-digital-twin serve --port 8000                      FastAPI + web UI
-```
+<p align="center">
+  <a href="#workspace">Workspace</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#how-it-works">Architecture</a> ·
+  <a href="#api">API</a>
+</p>
 
-## How it works
+## Workspace
 
-1. **Ingestion** (`pipeline.py`) - reads plain text, Markdown, JSON, CSV,
-   chunks (word-based, defaults `chunk_words=150`, `chunk_overlap=30`) and
-   embeds each chunk with `BAAI/bge-small-en-v1.5` (FastEmbed, 384 dims).
-2. **Extraction** - an LLM (OpenAI-compatible) pulls out name guess,
-   preferences, decision patterns, facts, entities and relations from each
-   doc. With no API key, a heuristic offline miner
-   (`extraction.offline_extract`) does the same from sentence signals
-   ("I like / I avoid / would rather", time-horizon rules, project names).
-3. **Profile** (`profile.py`) - style statistics (avg sentence length,
-   recurring words), merged preferences and decision rules, dominant topics.
-4. **Graph + GraphRAG** (`graph.py`, `graphrag.py`) - EntityResolver +
-   keyword/LLM keyword IDF build a NetworkX graph; Louvain communities get
-   LLM summaries (fallback = centroid keyword list).
-5. **Answering** (`engine.py`) - retrieve top chunks + graph local/global
-   context, rerank with Laya, build an evidence-first "brief", then decide:
-   - **Laya** (`laya_agent.py`) is a calibrated classifier/reranker
-     (cross-platform `laya` package, `convaiinnovations/laya`). Two signals
-     are forward-passed together and **ensembled** into one probability
-     distribution: per-option `noul` answers (P(true), normalized) and a
-     multi-label `choice` question. The checkpoint ships invalid
-     temperatures (`RuntimeWarning`, cosmetic) and - per Laya's own model
-     card - base checkpoints are not reliable zero-shot decision engines, so
-     Laya is treated as a System-1 cross-check, never the sole judge.
-   - **LLM** (when an `OPENAI_API_KEY` is set) is the grounded narrator: it
-     reasons in the twin's first-person voice over the same brief. Agreement
-     between LLM and Laya raises confidence; disagreement lowers it and is
-     noted in the reasoning.
+![Digital Twin chat workspace with conversation search and Markdown export](docs/assets/chat-workspace.jpg)
 
-> **Apple Silicon note:** the Apple-only `laya-mlx` backend is not required.
-> This project uses the cross-platform `laya` package on CPU
-> (`device="cpu"`), which works on Windows/Linux/macOS.
+<table>
+<tr>
+<td width="50%" valign="top">
+<h3>Clear conversations</h3>
+<p>Streamed replies, compact message entry, Hindi and English voice dictation, and optional choices for comparing decisions. Personal reports stay outside the chat view.</p>
+</td>
+<td width="50%" valign="top">
+<h3>Connected knowledge</h3>
+<p>Hybrid vector retrieval and GraphRAG connect relevant source fragments, entities, and communities. Explore the profile and graph through the profile menu.</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<h3>Your workspace, your style</h3>
+<p>Warm Ivory, Cool Slate, Soft Sage, and Evening themes. Adjustable text size, graph palettes, reduced motion, optional response timings, and reply notifications.</p>
+</td>
+<td width="50%" valign="top">
+<h3>Keep the useful parts</h3>
+<p>Search saved conversations, rename or archive sessions, and export readable Markdown. Resources includes usage guides, troubleshooting, and official references.</p>
+</td>
+</tr>
+</table>
 
-## Setup
+<details>
+<summary><strong>See the mobile resources page</strong></summary>
+<br />
+<img src="docs/assets/mobile-resources.jpg" alt="Resources guide on a phone-sized screen" width="320" />
+</details>
 
-```
+## Quick start
+
+**Requirements:** Python 3.10+, Node.js and npm, and sufficient memory for the local embedding and Laya models. CUDA is optional and requires a compatible NVIDIA GPU and CUDA-enabled PyTorch installation. CPU mode is available.
+
+The commands below use **Windows PowerShell**. On Linux/macOS, activate the environment with `source .venv/bin/activate` and use `cp` instead of `Copy-Item`.
+
+### Install
+
+```powershell
+git clone https://github.com/ShlokShah01/digital-twin.git
+cd digital-twin
 python -m venv .venv
-.venv\Scripts\Activate.ps1            # Windows
-pip install -e .
-pip install -e ".[dev]"               # optional, for the test suite
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+Copy-Item .env.example .env
+npm --prefix web ci
+npm --prefix web run build
 ```
 
-Copy `.env.example` to `.env` and add an LLM key (optional - without one the
-pipeline runs fully offline with the heuristic miner and Laya).
+### Configure and build
 
-NVIDIA NIM is the recommended LLM provider. Get up to two `nvapi-...` keys from
-https://build.nvidia.com, point the OpenAI-compatible client at NVIDIA and pick
-a hosted model:
+Add your NVIDIA API key to `.env` using the configuration below. The generated **Alex Carter demo is fictional**; start with it before adding your own material.
 
+```powershell
+digital-twin demo
+digital-twin build --data data/raw/demo --no-llm
+digital-twin serve --host 127.0.0.1 --port 8000
 ```
-OPENAI_API_KEY=nvapi-xxxx                 # key 1 (required for LLM mode)
-OPENAI_API_KEY_2=nvapi-yyyy               # key 2 (optional, second rate slot)
+
+Open **http://127.0.0.1:8000/#/chat**. `--no-llm` builds the demo using local extraction; it does not disable configured hosted-model chat. For LLM-assisted extraction of your own files, omit that flag:
+
+```powershell
+digital-twin build --data path/to/your/files
+digital-twin ask "New laptop?" --options "Buy new;Buy refurbished;Wait"
+digital-twin profile
+```
+
+First startup may download model weights. Later starts reuse the local cache. The server warms Laya and embeddings before accepting chats.
+
+## Configuration
+
+Keep credentials in your local `.env`; **never commit them**. `.env.example` contains the supported settings without keys.
+
+```dotenv
+OPENAI_API_KEY=your_first_nvidia_key
+OPENAI_API_KEY_2=your_optional_second_key
 OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1
 DIGITAL_TWIN_LLM_MODEL=nvidia/nemotron-3-super-120b-a12b
 DIGITAL_TWIN_LLM_FALLBACK_MODEL=openai/gpt-oss-20b
-DIGITAL_TWIN_LLM_FALLBACK_MODEL=                        # optional; alternate-key retry is enabled
-DIGITAL_TWIN_LLM_CONTEXT=131072   # input token budget (long docs/briefs are front-loaded to fit)
-DIGITAL_TWIN_LLM_TIMEOUT=20    # total retry deadline
-DIGITAL_TWIN_LLM_RPM=40        # strict rolling-minute cap per key
+DIGITAL_TWIN_LLM_TIMEOUT=20
+DIGITAL_TWIN_LLM_ATTEMPT_TIMEOUT=10
+DIGITAL_TWIN_LLM_RPM=40
+DIGITAL_TWIN_LLM_THINKING=false
+DIGITAL_TWIN_LAYA_DEVICE=cpu
 ```
 
-With both keys set, requests are round-robined across them (each capped at
-`DIGITAL_TWIN_LLM_RPM` requests/minute, roughly doubling effective throughput)
-and transient failures (429, 5xx, network blips, empty responses) are retried
-with exponential backoff while rotating keys, so a busy/free-tier NIM model
-recovers instead of falling back. If the primary model is retired or keeps
-failing, `DIGITAL_TWIN_LLM_FALLBACK_MODEL` is tried once per key. Hard errors
-(bad key) fail immediately to the offline path. The same client powers the
-chatbot answers **and** the `build` pipeline (extraction, persona, community
-summaries); without any key both degrade to the offline heuristic path. Any
-OpenAI-compatible endpoint (Ollama, vLLM, LM Studio, OpenAI itself) also works
-by changing `OPENAI_BASE_URL` and `DIGITAL_TWIN_LLM_MODEL`.
+Set `DIGITAL_TWIN_LAYA_DEVICE=cuda` after installing compatible CUDA-enabled PyTorch. Check `/api/health` for the actual loaded Laya device. The embedding model uses FastEmbed/ONNX; the answer model runs on the configured hosted provider.
 
-## Commands (Windows PowerShell)
+| Setting | Behavior |
+| --- | --- |
+| Two API keys | Round-robin starting slots, each with a local rolling-minute request limit |
+| Primary + fallback | Streamed chat switches model and key after a primary failure |
+| `DIGITAL_TWIN_LLM_RPM=40` | Local cap per key; provider/account limits still apply |
+| `DIGITAL_TWIN_NO_LLM=1` | Offline extraction and decision signals; no free-form hosted narrative |
+| `DIGITAL_TWIN_NO_LAYA=1` | Skip Laya reranking and decision signals |
+| `DIGITAL_TWIN_RAW_DIR` | Source directory; defaults to `data/raw` |
 
-```
-digital-twin demo                                   generate demo data (Alex Carter)
-digital-twin build --data data/raw/demo            ingest + graph + profile (offline)
-digital-twin ask "New laptop?" --options "A;B;C"   decision question
-digital-twin profile                                print the learned profile
-digital-twin serve --port 8000                      FastAPI + web UI
-```
+Restart the backend after changing `.env`. Model availability and response times vary. A 2026-10-01 fictional-data check through the configured Super client completed in **1.07–4.08 seconds**; this is a synthetic measurement, not a response-time guarantee.
 
-Everything above runs fully offline (no `OPENAI_API_KEY` needed). The web
-server writes its PID and log to `data/twin/server.pid` and
-`data/twin/server.log`; stop it with:
+## How it works
 
-```
-Stop-Process -Id (Get-Content data/twin/server.pid)
+```mermaid
+flowchart LR
+    Files[Notes and source files] --> Ingest[Ingest and chunk]
+    Ingest --> Index[Vector index]
+    Ingest --> Profile[Profile and knowledge graph]
+    Question[Your question] --> Retrieve[Hybrid retrieval and GraphRAG]
+    Index --> Retrieve
+    Profile --> Retrieve
+    Retrieve --> Laya[Laya reranking]
+    Laya --> Model[NVIDIA answer model]
+    Model --> Reply[Streamed reply]
 ```
 
-Restart after an edit:
+1. **Ingest:** read text, Markdown, JSON, and CSV; chunk and embed with `BAAI/bge-small-en-v1.5`.
+2. **Understand:** extract preferences, decision patterns, style signals, entities, and relationships. Offline builds use heuristic extraction.
+3. **Connect:** store vectors in LanceDB and graph relationships in NetworkX, with community context for GraphRAG.
+4. **Answer:** retrieve evidence, rerank with Laya, and generate a concise reply. Choice questions also compare Laya's decision signals with the LLM's interpretation.
 
-```
-$cmd = "digital-twin serve --port 8000"; $s = New-Object -ComObject WScript.Shell
-$s.Run($cmd, 0, $False)
-```
+Laya is a cross-check, not a guarantee of a person's future decisions. The checkpoint can emit a temperature-calibration warning; affected confidence values should be treated as uncalibrated. Chat displays the answer while technical metadata remains available through the API.
 
-The React frontend is pre-built into `web/dist` and served by FastAPI at
-`http://127.0.0.1:8000/`. To develop on the UI, run the Vite dev server
-(live-reloads against the same API, CORS is enabled for it only):
+## Development and testing
 
-```
-cd web
-npm install          # once
-npm run dev          # http://localhost:5173
-npm run build        # rebuild web/dist (the app FastAPI serves)
-```
+```powershell
+# Backend tests use local fixtures and mocked providers.
+python -m pytest
 
-## Testing
+# Frontend regression checks.
+node --test web/src/api.test.js web/src/lib/preferences.test.js web/src/lib/history.test.js
 
-```
-pip install -e ".[dev]"
-pytest
+# Frontend development server; run the backend separately on port 8000.
+npm --prefix web run dev
+
+# Rebuild the frontend served by FastAPI.
+npm --prefix web run build
 ```
 
-57 tests cover text utilities, offline mining, chunking, style analysis,
-the vector store, graph/GraphRAG, the offline build pipeline, incremental
-ingest, engine ask paths - including a stubbed-Laya + stub-LLM pass over the
-agreement/conflict/LLM-degraded branches - and a full HTTP contract suite
-(`tests/test_server.py`) that exercises `/api/health`, `/api/profile`,
-`/api/graph`, `/api/build`, `/api/ingest`, `/api/ask` and the LLM path
-through the live server against a local mock OpenAI-compatible server
-(`tests/mocks/mock_llm.py`) **without needing a real API key**. Set
-`DIGITAL_TWIN_NO_LAYA=1` or `laya_enabled=False` to skip Laya entirely in
-tests and CI.
-
-## Why the two Laya signals?
-
-- `noul` ("true/false", P(true) per option) is calibrated but near-flat on
-  novel scenarios (e.g. 0.72/0.68/0.62 for a three-way laptop choice).
-- Multi-label `choice` logits spread better (e.g. refurbished 0.44 top) but
-  are not individually calibrated.
-- Averaging the normalized distributions gives a sturdier ranking than
-  either alone; the raw values of both are kept in `answer.meta.laya`
-  (`noul_raw`, `choice_probs`, `ensemble`) for inspection.
+| Directory | Purpose |
+| --- | --- |
+| `src/digital_twin/` | FastAPI backend, retrieval, GraphRAG, model clients, and CLI |
+| `web/` | React/Vite frontend and browser-side conversation tools |
+| `tests/` | Backend regression tests and local provider mocks |
+| `data/raw/` | Local source documents; excluded from Git |
+| `data/twin/` | Generated index, graph, profile, and server logs; excluded from Git |
 
 ## API
 
-- `GET  /` - web app (React, built from `web/dist`)
-- `GET  /api/health` - status (`twin_built`, `chunks`, `llm`)
-- `GET  /api/profile` - profile summary (persona, style, preferences,
-  decision patterns, stats)
-- `GET  /api/graph` - knowledge graph communities for the viz view
-- `POST /api/build` - `{"data": "dir", "no_llm": false}`
-- `POST /api/ingest` - `{"path": "..."}`
-- `POST /api/ask` - `{"question": "...", "options": ["A", "B"]}`
+Interactive API documentation is available at **http://127.0.0.1:8000/docs** while the server is running.
 
-Every `ask` response reports its reasoning basis honestly in `answer.meta`:
-`resolution` (`agreement` | `conflict` | `llm_only` | `laya_only` | `none`),
-`llm_used`, `llm_enabled`, `laya_used` and the raw Laya signals at
-`answer.meta.laya` (`noul_raw`, `choice_probs`, `ensemble`). On a conflict
-the LLM's reasoned pick prevails and confidence is set to `0.6 * llm_conf`;
-the caution is surfaced in the UI.
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/health` | Model configuration, build status, and actual Laya device |
+| GET | `/api/profile` | Learned profile summary |
+| GET | `/api/graph` | Knowledge graph and communities |
+| POST | `/api/ask` | Complete answer for a question and optional choices |
+| POST | `/api/ask/stream` | NDJSON answer stream |
+| POST | `/api/build` | Rebuild the twin from source files |
+| POST | `/api/ingest` | Add a source file incrementally |
 
-## Notes
+```json
+{"question": "Which laptop would I choose?", "options": ["Buy new", "Buy refurbished", "Wait"]}
+```
 
-- **PowerShell gotcha:** semicolons split commands. Pass options as one
-  quoted string: `--options "A;B;C"`. Fewer than 2 options disables the
-  Laya vote (a single option is trivially P(true)=1).
-- Laya/model weights are cached in `~/.cache/huggingface` (set
-  `HF_HUB_DISABLE_SYMLINKS_WARNING=1` to silence the symlink warning).
-- On low-memory machines Laya (torch) can fail to allocate (Windows
-  `os error 1455`). This is caught: the twin degrades gracefully - Laya
-  choice/rerank is skipped, the LLM (or template) judges instead.
-- Config read from `Config`/env, see `digital_twin/config.py` and
-  `.env.example`.
+## Privacy and sharing
 
-## Response latency
+- Source documents and generated twin data stay in local project storage. Hosted-model requests send the question and relevant retrieved context to the configured provider.
+- Conversation history and appearance settings are saved in the current browser. They do not sync between devices. Export important chats before clearing browser storage.
+- To open the app from a phone on the same Wi-Fi, serve with `--host 0.0.0.0` and use `http://YOUR_LAPTOP_IP:8000/#/chat`. The laptop must stay running and its firewall must allow the connection.
+- The backend has **no built-in authentication**. Protect access before exposing it publicly: profile, graph, ingestion, and build routes are available to anyone who can reach it.
+- A Vercel frontend needs a separately reachable backend. This project does not include an always-on hosted GPU deployment.
 
-Laya weights are shared across requests and warmed when the server starts, so each chat avoids downloading/checking and loading a fresh checkpoint. On this Windows machine the project `.env` selects `DIGITAL_TWIN_LAYA_DEVICE=cuda`; `GET /api/health` reports the actual warmed device and `laya_loaded`.
+## Resources
 
-The narrator is NVIDIA `nvidia/nemotron-3-super-120b-a12b` with thinking disabled. GPT-OSS 20B is the independent fallback. A 2026-10-01 synthetic 4.6k-character context test produced first answer text in 0.87 seconds and completed in 6.68 seconds on Super. Two shorter fictional checks through the actual client completed in 4.08 and 1.07 seconds. Hosted timings vary; these are not guaranteed end-to-end response times. Streaming failures switch model and key together rather than retrying the same model twice. Every HTTP request counts toward the configured per-key 40 RPM quota; saturated keys fail over without a minute-long wait.
+- [Project usage and troubleshooting](http://127.0.0.1:8000/#/resources) — available when the local app is running.
+- [NVIDIA model reference](https://docs.api.nvidia.com/nim/reference/models-1)
+- [Cloudflare Tunnel documentation](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
+- [Configuration template](.env.example)
 
-`DIGITAL_TWIN_LLM_TIMEOUT=20` bounds the retry budget and `DIGITAL_TWIN_LLM_ATTEMPT_TIMEOUT=10` limits provider requests. Ordinary chat streams plain answer text, without generating a JSON decision report; structured choice questions keep their existing report. Greetings and identity questions answer locally. Provider failures produce a retryable error rather than a false missing-key answer. Retired models go directly to failover; authentication failures fail immediately; empty answers are never treated as successful. Provider response times still vary.
-
-Check GPU scoring/reranking with `.venv\Scripts\python.exe -B tests\check_laya_gpu.py`. Latency regressions are in `tests/test_latency.py`; the full API/engine tests continue to cover bot behavior. Chat displays only the answer; timing remains available in API metadata. The UI uses the same hash routes and existing localStorage chat history.
-
-### Conversation tools
-
-Search saved conversations by title, question, or answer in the sidebar. Use **Export chat** to download the current conversation as Markdown. History is local to this browser and device; export important chats before clearing browser storage. Open **Your profile → Resources** for usage guides, troubleshooting, and official documentation.
+Screenshots show the existing Warm Ivory workspace. Documentation artwork and captures are stored in `docs/assets/`; they contain no API keys or private twin evidence.
