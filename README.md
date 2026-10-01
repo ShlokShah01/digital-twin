@@ -1,9 +1,11 @@
+<h1 align="center">AI Digital Twin</h1>
+
 <p align="center">
   <img src="docs/assets/banner.svg" alt="Digital Twin: personal knowledge and clear conversations" width="100%" />
 </p>
 
 <p align="center">
-  <strong>A personal AI workspace built around your writing.</strong><br />
+  <strong>Turn your saved writing into connected knowledge, clear answers, and optional voice.</strong><br />
   Search your knowledge, explore decision patterns, and talk to a twin grounded in your saved material.
 </p>
 
@@ -19,6 +21,12 @@
   <a href="#configuration">Configuration</a> · <a href="#architecture">Architecture</a> ·
   <a href="#natural-read-aloud-audio">Voice</a> · <a href="#troubleshooting">Troubleshooting</a>
 </p>
+
+## Project repository
+
+**[ShlokShah01/digital-twin](https://github.com/ShlokShah01/digital-twin)** is the main repository for the complete application. It contains the React frontend, FastAPI backend, retrieval pipeline, Laya integration, and Pocket TTS speech service.
+
+A repository link opens the source code. To use the running app, start the backend and open `http://127.0.0.1:8000/#/chat` on your laptop, or the laptop's current local-network address on your phone. See [Phone and laptop access](#phone-and-laptop-access). A public website deployment is separate from storing code on GitHub.
 
 ## Workspace
 
