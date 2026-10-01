@@ -7,6 +7,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { cn } from "cn";
+import { matchesConversation } from "../lib/history.js";
 
 function SectionLabel({ children }) {
   return (
@@ -123,14 +124,18 @@ export default function Sidebar({
   onArchive,
   onDelete,
 }) {
-  const live = store.list.filter((s) => !s.archived).sort((a, b) => b.updatedAt - a.updatedAt);
-  const archived = store.list.filter((s) => s.archived).sort((a, b) => b.updatedAt - a.updatedAt);
+  const [query, setQuery] = useState("");
+  const matches = store.list.filter(s => matchesConversation(s, query));
+  const live = matches.filter((s) => !s.archived).sort((a, b) => b.updatedAt - a.updatedAt);
+  const archived = matches.filter((s) => s.archived).sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
       <div className="rail-sessions flex-1 overflow-y-auto pb-2">
+        <div className="session-search"><label className="sr-only" htmlFor="session-search">Search conversations</label><input id="session-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search conversations" /></div>
+        {query.trim() && matches.length === 0 && <p className="px-3 py-2 text-[12px] text-muted" role="status">No matching conversations.</p>}
         <SectionLabel>Recent ({live.length})</SectionLabel>
         <div className="flex flex-col gap-0.5">
-          {live.length === 0 && (
+          {live.length === 0 && !query.trim() && (
             <p className="px-3 py-1 text-[12px] text-subtl">No sessions yet. Start one above.</p>
           )}
           {live.map((s) => (

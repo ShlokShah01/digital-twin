@@ -25,3 +25,7 @@ The profile menu includes Settings. Persist preferences in this browser: Warm Iv
 ## Brand mark
 
 Use the existing Phosphor PenNib icon as a compact digital pen mark in the brand, profile button, mobile header and chat avatars. The user explicitly rejected the leaf motif. Keep consistent bronze strokes and restrained sizing.
+
+## Conversation tools and resources
+
+The rail has compact title/question/answer search. A small Export chat control saves visible turns and choices as Markdown, without internal evidence or metadata. Resources is a profile-menu destination with editorial sections, native troubleshooting disclosures, and official documentation links. It inherits workspace colors and responsive settings-page spacing.

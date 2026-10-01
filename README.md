@@ -191,3 +191,7 @@ The narrator is NVIDIA-hosted `openai/gpt-oss-20b` with low reasoning effort. It
 `DIGITAL_TWIN_LLM_TIMEOUT=20` bounds the retry budget and `DIGITAL_TWIN_LLM_ATTEMPT_TIMEOUT=8` limits provider requests. Ordinary chat streams plain answer text, without generating a JSON decision report; structured choice questions keep their existing report. Greetings and identity questions answer locally. Provider failures produce a retryable error rather than a false missing-key answer. Retired models go directly to failover; authentication failures fail immediately; empty answers are never treated as successful. Provider response times still vary.
 
 Check GPU scoring/reranking with `.venv\Scripts\python.exe -B tests\check_laya_gpu.py`. Latency regressions are in `tests/test_latency.py`; the full API/engine tests continue to cover bot behavior. Chat displays only the answer; timing remains available in API metadata. The UI uses the same hash routes and existing localStorage chat history.
+
+### Conversation tools
+
+Search saved conversations by title, question, or answer in the sidebar. Use **Export chat** to download the current conversation as Markdown. History is local to this browser and device; export important chats before clearing browser storage. Open **Your profile → Resources** for usage guides, troubleshooting, and official documentation.

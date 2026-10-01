@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  DownloadSimple,
   PenNib,
   CircleNotch,
   PaperPlaneTilt,
@@ -8,6 +9,7 @@ import {
   Plus,
 } from "@phosphor-icons/react";
 import { askStream, splitOptions } from "../api.js";
+import { downloadConversation } from "../lib/history.js";
 import { uid } from "../lib/chat.js";
 import { voiceDraft } from "../lib/voice.js";
 import { Button } from "../components/ui/button.jsx";
@@ -193,6 +195,7 @@ export default function Chat({ store, activeId, setActiveId, preferences }) {
   const submit = () => session ? send(session.id, text, opts) : startChat(text, opts);
   return (
     <div className="conversation">
+      {messages.length > 0 && <div className="conversation-actions"><Button variant="ghost" size="sm" disabled={pending} onClick={() => downloadConversation(session)}><DownloadSimple size={16} />Export chat</Button></div>}
       <div className="conversation-heading"><h1>{session?.title || "Chat"}</h1></div>
       <div className="conversation-scroll" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text" aria-busy={pending}>
         {messages.length === 0 && <div className="chat-welcome">

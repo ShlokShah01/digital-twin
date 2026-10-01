@@ -11,6 +11,7 @@ import Chat from "./views/Chat.jsx";
 import Profile from "./views/Profile.jsx";
 import Graph from "./views/Graph.jsx";
 import How from "./views/How.jsx";
+import Resources from "./views/Resources.jsx";
 import Settings from "./views/Settings.jsx";
 import { loadPreferences, normalizePreferences } from "./lib/preferences.js";
 
@@ -20,6 +21,7 @@ const VIEWS = [
   { id: "profile", label: "Profile", icon: UserCircle },
   { id: "graph", label: "Knowledge graph", icon: GraphIcon },
   { id: "how", label: "How it works", icon: BookOpen },
+  { id: "resources", label: "Resources", icon: BookOpen },
   { id: "settings", label: "Settings", icon: GearSix },
 ];
 
@@ -201,6 +203,7 @@ export default function App() {
     profile: <Profile profile={profile} onProfile={setProfile} />,
     graph: <Graph />,
     how: <How />,
+    resources: <Resources />,
     settings: <Settings preferences={preferences} onChange={setPreferences} health={health} />,
   }[view];
 
