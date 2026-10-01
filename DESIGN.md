@@ -32,4 +32,4 @@ The rail has compact title/question/answer search. A small Export chat control s
 
 ## Spoken replies
 
-Each successful final answer has a compact Read aloud toggle below the text. Playback is opt-in and uses browser speech synthesis with a matching English/Hindi voice when available. Only one reply plays at a time; Stop reading, starting dictation, changing sessions, and leaving chat cancel playback. Errors display a recovery message beside the control. Unsupported browsers disable the control.
+Each successful final answer has a compact Read aloud toggle below the text. Playback is opt-in and uses browser speech synthesis with a matching English/Hindi voice when available. Prefer natural/neural/enhanced voices over basic voices, wait briefly for the browser voice list, and use 70% volume with a 0.98 speech rate and neutral pitch. Only one reply plays at a time; Stop reading, starting dictation, changing sessions, and leaving chat cancel playback. Errors display a recovery message beside the control. Unsupported browsers disable the control.

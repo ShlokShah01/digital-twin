@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { replyUtterance } from "./voice.js";
+import { replyUtterance, readyVoices } from "./voice.js";
 class Utterance { constructor(text) { this.text = text; } }
 test("read aloud preserves the complete answer and selects a matching language voice", () => {
   const voices = [{ lang: "hi-IN" }, { lang: "en-US" }, { lang: "en-IN" }];
@@ -15,4 +15,31 @@ test("read aloud falls back to a same-language voice or the browser default", ()
   const voice = { lang: "en-GB" };
   assert.equal(replyUtterance("Hello", Utterance, [voice]).voice, voice);
   assert.equal(replyUtterance("Hello", Utterance).voice, null);
+});
+
+
+test("a natural English voice takes priority over a basic exact-locale voice with softer output", () => {
+  const basic = { name: "Microsoft Ravi", lang: "en-IN" };
+  const natural = { name: "Microsoft Aria Online (Natural)", lang: "en-US" };
+  const hindi = { name: "Natural Hindi", lang: "hi-IN" };
+  const reply = replyUtterance("Hello, let us talk this through.", Utterance, [basic, hindi, natural]);
+  assert.equal(reply.voice, natural);
+  assert.equal(reply.lang, "en-US");
+  assert.equal(reply.volume, 0.7);
+  assert.equal(reply.rate, 0.98);
+  assert.equal(reply.pitch, 1);
+});
+test("late-loaded voices are used and their listener is released", async () => {
+  const synthesis = new EventTarget();
+  let voices = [];
+  synthesis.getVoices = () => voices;
+  const pending = readyVoices(synthesis);
+  voices = [{ name: "Natural voice", lang: "en-IN" }];
+  synthesis.dispatchEvent(new Event("voiceschanged"));
+  assert.deepEqual(await pending, voices);
+});
+test("voice loading cannot block playback indefinitely", async () => {
+  const synthesis = new EventTarget();
+  synthesis.getVoices = () => [];
+  assert.deepEqual(await readyVoices(synthesis, 5), []);
 });

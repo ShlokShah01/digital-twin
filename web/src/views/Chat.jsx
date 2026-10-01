@@ -12,7 +12,7 @@ import {
 import { askStream, splitOptions } from "../api.js";
 import { downloadConversation } from "../lib/history.js";
 import { uid } from "../lib/chat.js";
-import { voiceDraft, replyUtterance } from "../lib/voice.js";
+import { voiceDraft, replyUtterance, readyVoices } from "../lib/voice.js";
 import { Button } from "../components/ui/button.jsx";
 import { Textarea } from "../components/ui/textarea.jsx";
 
@@ -80,13 +80,18 @@ export default function Chat({ store, activeId, setActiveId, preferences }) {
       }
     };
   }, [activeId]);
-  const readReply = msg => {
+  const readReply = async msg => {
     const wasReading = readingId === msg.id;
     stopReading();
     setSpeechNotice(null);
     if (wasReading || !canRead) return;
     recognitionRef.current?.abort();
-    const utterance = replyUtterance(msg.answer.answer, window.SpeechSynthesisUtterance, window.speechSynthesis.getVoices());
+    const waiting = {};
+    utteranceRef.current = waiting;
+    setReadingId(msg.id);
+    const voices = await readyVoices(window.speechSynthesis);
+    if (utteranceRef.current !== waiting) return;
+    const utterance = replyUtterance(msg.answer.answer, window.SpeechSynthesisUtterance, voices);
     utteranceRef.current = utterance;
     const finish = () => {
       if (utteranceRef.current !== utterance) return;
