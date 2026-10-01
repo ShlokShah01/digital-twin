@@ -12,7 +12,8 @@ export function replyUtterance(text, Utterance, voices = []) {
   const score = voice => {
     const name = voice.name || "";
     const quality = /natural|neural|premium|enhanced/i.test(name) ? 100 : /google|online/i.test(name) ? 60 : 0;
-    return quality + (voice.lang.toLowerCase() === utterance.lang.toLowerCase() ? 10 : 0) + (voice.default ? 1 : 0);
+    // Preserve the intended accent before comparing voice quality.
+    return quality + (voice.lang.toLowerCase() === utterance.lang.toLowerCase() ? 200 : 0) + (voice.default ? 1 : 0);
   };
   utterance.voice = voices.filter(voice => voice.lang.toLowerCase().startsWith(language))
     .sort((a, b) => score(b) - score(a))[0] || null;

@@ -18,13 +18,13 @@ test("read aloud falls back to a same-language voice or the browser default", ()
 });
 
 
-test("a natural English voice takes priority over a basic exact-locale voice with softer output", () => {
+test("Indian English accent is preserved instead of switching to a US voice", () => {
   const basic = { name: "Microsoft Ravi", lang: "en-IN" };
   const natural = { name: "Microsoft Aria Online (Natural)", lang: "en-US" };
   const hindi = { name: "Natural Hindi", lang: "hi-IN" };
   const reply = replyUtterance("Hello, let us talk this through.", Utterance, [basic, hindi, natural]);
-  assert.equal(reply.voice, natural);
-  assert.equal(reply.lang, "en-US");
+  assert.equal(reply.voice, basic);
+  assert.equal(reply.lang, "en-IN");
   assert.equal(reply.volume, 0.7);
   assert.equal(reply.rate, 0.98);
   assert.equal(reply.pitch, 1);
@@ -42,4 +42,14 @@ test("voice loading cannot block playback indefinitely", async () => {
   const synthesis = new EventTarget();
   synthesis.getVoices = () => [];
   assert.deepEqual(await readyVoices(synthesis, 5), []);
+});
+
+
+test("natural Indian English is preferred among voices with the intended accent", () => {
+  const voices = [
+    { name: "Microsoft Ravi", lang: "en-IN", default: true },
+    { name: "Microsoft Aria Online (Natural)", lang: "en-US" },
+    { name: "Microsoft Neerja Online (Natural)", lang: "en-IN" },
+  ];
+  assert.equal(replyUtterance("Let us discuss your options.", Utterance, voices).voice, voices[2]);
 });
